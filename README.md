@@ -1,11 +1,11 @@
-[![npm version](https://img.shields.io/npm/v/@sovereignbase/package-name)](https://www.npmjs.com/package/@sovereignbase/package-name)
-[![CI](https://github.com/sovereignbase/package-name/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/sovereignbase/package-name/actions/workflows/ci.yaml)
-[![codecov](https://codecov.io/gh/sovereignbase/package-name/branch/master/graph/badge.svg)](https://codecov.io/gh/sovereignbase/package-name)
-[![license](https://img.shields.io/npm/l/@sovereignbase/package-name)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@sovereignbase/observed-remove-set)](https://www.npmjs.com/package/@sovereignbase/observed-remove-set)
+[![CI](https://github.com/sovereignbase/observed-remove-set/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/sovereignbase/observed-remove-set/actions/workflows/ci.yaml)
+[![codecov](https://codecov.io/gh/sovereignbase/observed-remove-set/branch/master/graph/badge.svg)](https://codecov.io/gh/sovereignbase/observed-remove-set)
+[![license](https://img.shields.io/npm/l/@sovereignbase/observed-remove-set)](LICENSE)
 
 1. Title
 
-# package-name
+# observed-remove-set
 
 2. Description
 

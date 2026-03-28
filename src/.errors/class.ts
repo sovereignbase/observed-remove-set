@@ -1,11 +1,11 @@
-export type PackageNameErrorCode = 'EXAMPLE_ERROR_CODE'
+export type ORSetErrorCode = 'BAD_SNAPSHOT'
 
-export class PackageNameError extends Error {
-  readonly code: PackageNameErrorCode
+export class ORSetError extends Error {
+  readonly code: ORSetErrorCode
 
-  constructor(code: PackageNameErrorCode, message?: string) {
+  constructor(code: ORSetErrorCode, message?: string) {
     const detail = message ?? code
-    super(`{@z-base/package-name} ${detail}`)
+    super(`{@sovereignbase/observed-remove-set} ${detail}`)
     this.code = code
     this.name = 'PackageNameError'
   }
