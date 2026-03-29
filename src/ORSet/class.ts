@@ -8,17 +8,7 @@ import type {
 import { validateORSetSnapshot } from './validateORSetSnapshot/index.js'
 
 export class ORSet<T> {
-  private eventListeners: {
-    snapshot: Set<(snapshot: ORSetSnapshot<T>) => void>
-    remove: Set<(delta: ORSetSnapshot<T>) => void>
-    append: Set<(delta: ORSetSnapshot<T>) => void>
-    merge: Set<(merge: ORSetMergeResult<T>) => void>
-  } = {
-    snapshot: new Set(),
-    remove: new Set(),
-    append: new Set(),
-    merge: new Set(),
-  }
+  private readonly eventTarget = new EventTarget()
   private state: ORSetState<T>
   public size: number
   /***/
@@ -47,12 +37,14 @@ export class ORSet<T> {
     const v7 = uuidv7()
     entry.__uuidv7 = v7
     this.state.items[v7] = entry
-    for (const listener of this.eventListeners.append) {
-      listener({
-        tombs: [],
-        items: [entry],
+    this.eventTarget.dispatchEvent(
+      new CustomEvent('delta', {
+        detail: {
+          tombs: [],
+          items: [entry],
+        },
       })
-    }
+    )
   }
   /***/
   clear(): void {
@@ -62,24 +54,28 @@ export class ORSet<T> {
       delete this.state.items[v7]
       egressTombs.push(v7)
     }
-    for (const listener of this.eventListeners.remove) {
-      listener({
-        tombs: egressTombs,
-        items: [],
+    this.eventTarget.dispatchEvent(
+      new CustomEvent('delta', {
+        detail: {
+          tombs: egressTombs,
+          items: [],
+        },
       })
-    }
+    )
   }
   /***/
   remove(entry: ORSetEntry<T>): void {
     const v7 = entry.__uuidv7
     this.state.tombs.add(v7)
     delete this.state.items[v7]
-    for (const listener of this.eventListeners.remove) {
-      listener({
-        tombs: [v7],
-        items: [],
+    this.eventTarget.dispatchEvent(
+      new CustomEvent('delta', {
+        detail: {
+          tombs: [v7],
+          items: [],
+        },
       })
-    }
+    )
   }
   /***/
   values(): Array<Readonly<ORSetEntry<T>>> {
@@ -106,12 +102,14 @@ export class ORSet<T> {
         additions.push(entry)
       }
     }
-    for (const listener of this.eventListeners.merge) {
-      listener({
-        additions,
-        removals,
+    this.eventTarget.dispatchEvent(
+      new CustomEvent('merge', {
+        detail: {
+          additions,
+          removals,
+        },
       })
-    }
+    )
   }
   /***/
   snapshot(): ORSetSnapshot<T> {
@@ -122,20 +120,20 @@ export class ORSet<T> {
   }
   /***/
   addEventListener(
-    type: keyof typeof this.eventListeners,
-    listener: () => void,
-    options?: {}
+    type: 'snapshot' | 'delta' | 'merge',
+    listener: EventListenerOrEventListenerObject | null,
+    options?: boolean | AddEventListenerOptions
   ) {
-    if (!(typeof listener === 'function')) return
-    this.eventListeners[type].add(listener)
+    this.eventTarget.addEventListener(type, listener, options)
   }
   /***/
   removeEventListener(
-    type: keyof typeof this.eventListeners,
-    listener: () => void,
-    options?: {}
+    type: 'snapshot' | 'delta' | 'merge',
+    listener: EventListenerOrEventListenerObject | null,
+    options?: boolean | EventListenerOptions
   ) {
-    if (!(typeof listener === 'function')) return
-    this.eventListeners[type].delete(listener)
+    this.eventTarget.removeEventListener(type, listener, options)
   }
 }
+
+new ORSet().addEventListener('delta', (ev) => {})
