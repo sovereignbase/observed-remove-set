@@ -1,64 +1,70 @@
-import { createServer } from 'node:http'
+import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { extname, resolve } from 'node:path'
 
-const contentTypes = {
-  '.cjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.map': 'application/json; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
+const root = resolve(process.cwd())
+const testRoot = resolve(root, 'test', 'e2e')
+
+const mimeTypes = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
+  '.json': 'application/json',
+  '.map': 'application/json',
+  '.css': 'text/css',
+  '.cjs': 'text/javascript',
 }
 
-export async function startServer(rootDir) {
-  const root = resolve(rootDir)
-  const server = createServer(async (request, response) => {
-    try {
-      const url = new URL(request.url ?? '/', 'http://127.0.0.1')
-      const pathname =
-        url.pathname === '/'
-          ? '/test/e2e/runsInBrowsers/index.html'
-          : url.pathname
-      const filePath = resolve(root, `.${decodeURIComponent(pathname)}`)
+function safeResolve(base, pathname) {
+  const resolved = resolve(base, '.' + pathname)
+  if (!resolved.startsWith(base)) return null
+  return resolved
+}
 
-      if (!filePath.startsWith(root)) {
-        response.writeHead(403)
-        response.end('Forbidden')
-        return
-      }
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+  let pathname = url.pathname
+  if (pathname === '/') pathname = '/runsInBrowsers/index.html'
 
-      const body = await readFile(filePath)
-      response.writeHead(200, {
-        'content-type':
-          contentTypes[extname(filePath)] ?? 'application/octet-stream',
-      })
-      response.end(body)
-    } catch {
-      response.writeHead(404)
-      response.end('Not found')
-    }
-  })
-
-  await new Promise((resolvePromise) => {
-    server.listen(0, '127.0.0.1', resolvePromise)
-  })
-
-  const address = server.address()
-  const port = typeof address === 'object' && address ? address.port : 0
-
-  return {
-    origin: `http://127.0.0.1:${port}`,
-    close: () =>
-      new Promise((resolvePromise, rejectPromise) => {
-        server.close((error) => {
-          if (error) {
-            rejectPromise(error)
-            return
-          }
-          resolvePromise()
-        })
-      }),
+  let filePath
+  if (pathname.startsWith('/dist/')) {
+    filePath = safeResolve(root, pathname)
+  } else if (pathname.startsWith('/node_modules/')) {
+    filePath = safeResolve(root, pathname)
+  } else {
+    filePath = safeResolve(testRoot, pathname)
   }
+
+  if (!filePath) {
+    res.statusCode = 400
+    res.end('Bad request')
+    return
+  }
+
+  try {
+    const data = await readFile(filePath)
+    res.statusCode = 200
+    res.setHeader(
+      'Content-Type',
+      mimeTypes[extname(filePath)] || 'application/octet-stream'
+    )
+    res.end(data)
+  } catch {
+    res.statusCode = 404
+    res.end('Not found')
+  }
+})
+
+const port = Number.parseInt(process.env.PORT || '4173', 10)
+server.listen(port, '127.0.0.1', () => {
+  console.log(
+    `observed-remove-set test server running at http://127.0.0.1:${port}`
+  )
+})
+
+function shutdown() {
+  server.close(() => process.exit(0))
 }
+
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)

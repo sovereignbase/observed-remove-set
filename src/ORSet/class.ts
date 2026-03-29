@@ -18,7 +18,7 @@ export class ORSet<T> {
   constructor(snapshot?: ORSetSnapshot<T>) {
     this.size = 0
     this.state = { items: {}, tombs: new Set([]) }
-    if (snapshot) {
+    if (snapshot !== undefined) {
       if (!validateORSetSnapshot(snapshot)) {
         throw new ORSetError('BAD_SNAPSHOT', 'Malformed snapshot.')
       }
@@ -29,7 +29,7 @@ export class ORSet<T> {
       for (const item of snapshot.items) {
         const v7 = item.__uuidv7
         if (!this.isUuidV7(v7)) continue
-        if (!this.state.tombs.has(v7)) {
+        if (!this.state.tombs.has(v7) && !Object.hasOwn(this.state.items, v7)) {
           this.state.items[v7] = Object.freeze(item)
           this.size++
         }

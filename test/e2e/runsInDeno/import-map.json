@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "uuid": "../../../node_modules/uuid/dist/index.js"
+  }
+}
