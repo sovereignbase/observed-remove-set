@@ -144,7 +144,3 @@ export class ORSet<T> {
     )
   }
 }
-
-new ORSet<{ name: string; age: number }>().addEventListener('delta', (ev) => {
-  const { items, tombs } = ev.detail
-})
