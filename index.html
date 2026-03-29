@@ -1,8 +1,8 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>UUID based Observed Remove Set</title>
+    <title>Observed Remove Set</title>
     <script
       src="https://www.w3.org/Tools/respec/respec-w3c"
       class="remove"
@@ -11,11 +11,11 @@
     <script class="remove">
       var respecConfig = {
         specStatus: 'unofficial',
+        shortName: 'observed-remove-set',
+        github: 'sovereignbase/observed-remove-set',
         editors: [
           { name: 'Jori Lehtinen', url: 'https://github.com/jortsupetterson' },
         ],
-        github: 'sovereignbase/observed-remove-set',
-        shortName: 'or-set',
         xref: 'web-platform',
         lint: {
           'informative-dfn': true,
@@ -23,19 +23,23 @@
           'no-unused-dfns': true,
         },
         localBiblio: {
-          nik96a: {
+          RFC9562: {
+            title: 'Universally Unique IDentifiers (UUIDs)',
+            href: 'https://www.rfc-editor.org/rfc/rfc9562',
+            publisher: 'IETF',
+            date: '2024-05',
+          },
+          ORSET: {
+            title: 'An optimized conflict-free replicated set',
+            href: 'https://arxiv.org/abs/1210.3368',
+            publisher: 'arXiv',
+            date: '2012-10-12',
+          },
+          NIK96A: {
             title: 'Optimised ObservedRemove Set in depth',
             href: 'https://medium.com/@nik96a/optimised-observedremove-set-in-depth-60770103a650',
             publisher: '@nik96a',
             date: '2022-10-31',
-            id: '@nik96a',
-          },
-          og: {
-            title: 'An optimized conflict-free replicated set',
-            href: 'https://arxiv.org/abs/1210.3368',
-            publisher: 'arxiv',
-            date: '2022-10-31',
-            id: 'og',
           },
         },
       }
@@ -43,55 +47,533 @@
   </head>
   <body>
     <section id="abstract">
-      <p>This is required.</p>
+      <p>
+        This document specifies the behavior of the
+        <code>@sovereignbase/observed-remove-set</code> package as implemented
+        by its current source. It defines the package's data model, mutation
+        semantics, event model, error conditions, and the algorithms that govern
+        construction, append, remove, clear, merge, and snapshot production.
+      </p>
     </section>
+
     <section id="sotd">
-      <p>This is required.</p>
+      <p>
+        This specification is an unofficial document maintained alongside the
+        package implementation. It is intended to make the package's behavior
+        explicit and auditable.
+      </p>
     </section>
+
+    <section id="conformance">
+      <p>
+        The key words <em>MUST</em>, <em>MUST NOT</em>, <em>SHOULD</em>,
+        <em>SHOULD NOT</em>, and <em>MAY</em> in this document are to be
+        interpreted as described in BCP 14 [[RFC2119]] [[RFC8174]] when, and
+        only when, they appear in all capitals.
+      </p>
+      <p>
+        A conforming implementation of this specification MUST expose the
+        behavior defined in the algorithms below. A conforming use of the API
+        MUST treat the package-maintained state, including the <code>size</code>
+        property, as implementation-owned state.
+      </p>
+    </section>
+
     <section class="informative">
       <h2>Introduction</h2>
-      <p>Some informative introductory text.</p>
-      <aside class="note" title="A useful note">
-        <p>I'm a note!</p>
+      <p>
+        An observed-remove set, or OR-Set, is a set CRDT in which additions are
+        tracked by stable identifiers and removals are represented as
+        tombstones. This package uses UUID version 7 values as entry identifiers
+        and exposes a small JavaScript API centered around snapshots and merge
+        operations.
+      </p>
+      <p>
+        The package is designed for membership-style data and static metadata.
+        It is not a field-level CRDT for deep object mutation. The
+        implementation freezes each stored entry shallowly, but nested object
+        mutation remains outside the package's replication semantics.
+      </p>
+      <aside class="note">
+        <p>
+          This specification describes the package's current semantics,
+          including cases where malformed top-level snapshots throw while
+          malformed individual tomb or item entries are ignored.
+        </p>
       </aside>
     </section>
+
     <section>
-      <h2>A section</h2>
-      <aside class="example">
-        <p>This is an example.</p>
-        <pre class="js">
-        // Automatic syntax highlighting
-        function someJavaScript(){}
-        </pre>
-      </aside>
-      <section>
-        <h3>I'm a sub-section</h3>
-        <p class="issue" data-number="121">
-          <!-- Issue can automatically be populated from GitHub -->
+      <h2>Terminology</h2>
+      <p>
+        A <dfn>valid UUIDv7 string</dfn> is a string that is a valid UUID and
+        whose version field is <code>7</code> as defined by [[RFC9562]].
+      </p>
+      <p>
+        An <dfn>entry</dfn> is an object that has a
+        <code>__uuidv7</code> property whose value is intended to be a valid
+        UUIDv7 string.
+      </p>
+      <p>
+        A <dfn>live entry</dfn> is an entry whose identifier is present in the
+        implementation's item store and absent from its tomb set.
+      </p>
+      <p>
+        A <dfn>tombstone</dfn> is a UUIDv7 string recorded in the
+        implementation's tomb set.
+      </p>
+      <p>
+        A <dfn>snapshot</dfn> is an object with an <code>items</code> array and
+        a <code>tombs</code> array.
+      </p>
+      <p>
+        A <dfn>well-formed snapshot</dfn> is a value that is an Object and whose
+        <code>items</code> member is an Array and whose
+        <code>tombs</code> member is an Array.
+      </p>
+      <p>
+        A <dfn>malformed snapshot</dfn> is any value that is not a
+        <a>well-formed snapshot</a>.
+      </p>
+      <p>
+        A <dfn>no-op mutation</dfn> is an API call that does not change the live
+        item store and does not change the tomb set.
+      </p>
+    </section>
+
+    <section>
+      <h2>Data Model</h2>
+      <p>Each OR-Set instance maintains two pieces of internal state:</p>
+      <ul>
+        <li>
+          an item store keyed by UUIDv7 string and containing frozen entry
+          objects; and
+        </li>
+        <li>a tomb set containing UUIDv7 strings.</li>
+      </ul>
+      <p>
+        The <code>size</code> property reflects the number of live entries in
+        the item store.
+      </p>
+      <p>
+        The implementation MUST treat the first accepted live entry for a given
+        UUIDv7 as authoritative. Later duplicates with the same UUIDv7 MUST be
+        ignored unless the UUID is absent from the live item store and not
+        tombstoned.
+      </p>
+      <p>
+        Invalid individual tombs and invalid individual items MUST be ignored.
+        Only malformed top-level snapshots are fatal.
+      </p>
+    </section>
+
+    <section>
+      <h2>API Summary</h2>
+      <pre class="idl">
+[Exposed=*]
+interface ORSet {
+  constructor(optional ORSetSnapshot snapshot);
+  attribute unsigned long size;
+  boolean has(any value);
+  undefined append(any entry);
+  undefined clear();
+  undefined remove(any entry);
+  sequence&lt;any&gt; values();
+  undefined merge(ORSetSnapshot ingress);
+  ORSetSnapshot snapshot();
+  undefined addEventListener(
+    DOMString type,
+    EventListenerOrEventListenerObject? listener,
+    optional (AddEventListenerOptions or boolean) options
+  );
+  undefined removeEventListener(
+    DOMString type,
+    EventListenerOrEventListenerObject? listener,
+    optional EventListenerOptions options
+  );
+};
+
+dictionary ORSetSnapshot {
+  sequence&lt;any&gt; items = [];
+  sequence&lt;DOMString&gt; tombs = [];
+};
+
+dictionary ORSetMergeResult {
+  sequence&lt;DOMString&gt; removals = [];
+  sequence&lt;any&gt; additions = [];
+};
+      </pre>
+      <p>
+        The package's runtime surface exports the <dfn>ORSet</dfn> constructor.
+        The package's type surface additionally exposes the
+        <dfn>ORSetErrorCode</dfn> union, currently containing only
+        <code>BAD_SNAPSHOT</code>.
+      </p>
+    </section>
+
+    <section>
+      <h2>Event Model</h2>
+      <p>
+        Implementations MUST support listener registration through
+        <code>addEventListener()</code> and <code>removeEventListener()</code>.
+      </p>
+      <p>Implementations MUST dispatch the following events:</p>
+      <dl>
+        <dt><dfn>delta event</dfn></dt>
+        <dd>
+          A <code>CustomEvent</code> whose <code>detail</code> is an
+          <a>ORSetSnapshot</a>-shaped delta payload. It is dispatched after
+          successful <code>append()</code>, <code>remove()</code>, and
+          <code>clear()</code> operations. It is not dispatched by
+          <code>merge()</code>.
+        </dd>
+        <dt><dfn>snapshot event</dfn></dt>
+        <dd>
+          A <code>CustomEvent</code> whose <code>detail</code> is the full
+          current snapshot after a state-changing mutation.
+        </dd>
+        <dt><dfn>merge event</dfn></dt>
+        <dd>
+          A <code>CustomEvent</code> whose <code>detail</code> is an
+          <a>ORSetMergeResult</a>. It is dispatched only when
+          <code>merge()</code> changes state.
+        </dd>
+      </dl>
+      <p>A <a>no-op mutation</a> MUST NOT dispatch any event.</p>
+    </section>
+
+    <section>
+      <h2>Error Model</h2>
+      <p>
+        When this specification requires throwing an <dfn>ORSetError</dfn>, the
+        implementation MUST throw an <code>Error</code>-derived object whose
+        <code>name</code> is <code>ORSetError</code> and whose
+        <code>code</code> is <code>BAD_SNAPSHOT</code>, a member of
+        <a>ORSetErrorCode</a>.
+      </p>
+      <p>
+        Constructor input and merge input MUST throw <a>ORSetError</a> when the
+        provided snapshot is <a>malformed snapshot</a>. Invalid tombs and
+        invalid items inside an otherwise <a>well-formed snapshot</a> MUST be
+        ignored and MUST NOT throw.
+      </p>
+    </section>
+
+    <section>
+      <h2>Algorithms</h2>
+
+      <section data-dfn-for="ORSet">
+        <h3><dfn>Constructor</dfn></h3>
+        <p>
+          The <code>ORSet(snapshot)</code> constructor initializes a new OR-Set
+          instance.
+        </p>
+        <ol class="algorithm">
+          <li>Set <var>size</var> to <code>0</code>.</li>
+          <li>
+            Initialize the item store to an empty object and the tomb set to an
+            empty set.
+          </li>
+          <li>
+            If <var>snapshot</var> is <code>undefined</code>, then return.
+          </li>
+          <li>
+            If <var>snapshot</var> is a <a>malformed snapshot</a>, then throw
+            <a>ORSetError</a>.
+          </li>
+          <li>
+            For each <var>tomb</var> in <var>snapshot</var>'s
+            <code>tombs</code> array:
+            <ol>
+              <li>
+                If <var>tomb</var> is not a <a>valid UUIDv7 string</a>,
+                continue.
+              </li>
+              <li>Add <var>tomb</var> to the tomb set.</li>
+            </ol>
+          </li>
+          <li>
+            For each <var>item</var> in <var>snapshot</var>'s
+            <code>items</code> array:
+            <ol>
+              <li>
+                Let <var>v7</var> be <var>item</var>'s
+                <code>__uuidv7</code> member.
+              </li>
+              <li>
+                If <var>v7</var> is not a <a>valid UUIDv7 string</a>, continue.
+              </li>
+              <li>If the tomb set contains <var>v7</var>, continue.</li>
+              <li>
+                If the item store already has its own property named
+                <var>v7</var>, continue.
+              </li>
+              <li>
+                Store <code>Object.freeze(item)</code> in the item store at
+                <var>v7</var>.
+              </li>
+              <li>Increase <var>size</var> by <code>1</code>.</li>
+            </ol>
+          </li>
+        </ol>
+      </section>
+
+      <section data-dfn-for="ORSet">
+        <h3><dfn>has()</dfn></h3>
+        <p>
+          The <code>has(value)</code> method returns whether the item store has
+          its own property whose name is <code>value.__uuidv7</code>.
+        </p>
+      </section>
+
+      <section data-dfn-for="ORSet">
+        <h3><dfn>append()</dfn></h3>
+        <ol class="algorithm">
+          <li>Let <var>v7</var> be <code>entry.__uuidv7</code>.</li>
+          <li>
+            If <var>v7</var> is a <a>valid UUIDv7 string</a> and the item store
+            already has its own property named <var>v7</var>, then return.
+          </li>
+          <li>
+            If <var>v7</var> is a <a>valid UUIDv7 string</a> and the tomb set
+            does not contain <var>v7</var>, then let <var>stored entry</var> be
+            <code>Object.freeze(entry)</code>.
+          </li>
+          <li>
+            Otherwise, let <var>stored entry</var> be
+            <code>Object.freeze({...entry, __uuidv7: new UUIDv7})</code>, where
+            <var>new UUIDv7</var> is a freshly generated
+            <a>valid UUIDv7 string</a>.
+          </li>
+          <li>
+            Let <var>nextV7</var> be <var>stored entry</var>'s
+            <code>__uuidv7</code>.
+          </li>
+          <li>
+            Store <var>stored entry</var> in the item store at
+            <var>nextV7</var>.
+          </li>
+          <li>Increase <var>size</var> by <code>1</code>.</li>
+          <li>
+            Dispatch a <a>delta event</a> whose <code>detail</code> contains
+            <code>items: [stored entry]</code> and <code>tombs: []</code>.
+          </li>
+          <li>
+            Dispatch a <a>snapshot event</a> whose <code>detail</code> is the
+            result of running <a>snapshot()</a>.
+          </li>
+        </ol>
+      </section>
+
+      <section data-dfn-for="ORSet">
+        <h3><dfn>clear()</dfn></h3>
+        <ol class="algorithm">
+          <li>If <var>size</var> is <code>0</code>, then return.</li>
+          <li>Let <var>egress tombs</var> be a new empty list.</li>
+          <li>
+            For each own property name <var>v7</var> of the item store:
+            <ol>
+              <li>Add <var>v7</var> to the tomb set.</li>
+              <li>Delete the item store entry at <var>v7</var>.</li>
+              <li>Append <var>v7</var> to <var>egress tombs</var>.</li>
+            </ol>
+          </li>
+          <li>Set <var>size</var> to <code>0</code>.</li>
+          <li>
+            Dispatch a <a>delta event</a> whose <code>detail</code> contains
+            <code>items: []</code> and <code>tombs: egress tombs</code>.
+          </li>
+          <li>
+            Dispatch a <a>snapshot event</a> whose <code>detail</code> is the
+            result of running <a>snapshot()</a>.
+          </li>
+        </ol>
+      </section>
+
+      <section data-dfn-for="ORSet">
+        <h3><dfn>remove()</dfn></h3>
+        <ol class="algorithm">
+          <li>Let <var>v7</var> be <code>entry.__uuidv7</code>.</li>
+          <li>
+            If <var>v7</var> is not a <a>valid UUIDv7 string</a>, then return.
+          </li>
+          <li>
+            Let <var>had item</var> be whether the item store has its own
+            property named <var>v7</var>.
+          </li>
+          <li>
+            Let <var>had tomb</var> be whether the tomb set contains
+            <var>v7</var>.
+          </li>
+          <li>
+            If <var>had item</var> is false and <var>had tomb</var> is true,
+            then return.
+          </li>
+          <li>Add <var>v7</var> to the tomb set.</li>
+          <li>Delete the item store entry at <var>v7</var>.</li>
+          <li>
+            If <var>had item</var> is true, decrease <var>size</var> by
+            <code>1</code>.
+          </li>
+          <li>
+            Dispatch a <a>delta event</a> whose <code>detail</code> contains
+            <code>items: []</code> and <code>tombs: [v7]</code>.
+          </li>
+          <li>
+            Dispatch a <a>snapshot event</a> whose <code>detail</code> is the
+            result of running <a>snapshot()</a>.
+          </li>
+        </ol>
+        <p>
+          This algorithm intentionally permits recording a tombstone for a valid
+          UUIDv7 that does not currently correspond to a live item.
+        </p>
+      </section>
+
+      <section data-dfn-for="ORSet">
+        <h3><dfn>values()</dfn></h3>
+        <p>
+          The <code>values()</code> method returns a new array containing the
+          current live entries in the item store's enumeration order.
+        </p>
+      </section>
+
+      <section data-dfn-for="ORSet">
+        <h3><dfn>merge()</dfn></h3>
+        <ol class="algorithm">
+          <li>
+            If <var>ingress</var> is a <a>malformed snapshot</a>, then throw
+            <a>ORSetError</a>.
+          </li>
+          <li>Let <var>additions</var> be a new empty list.</li>
+          <li>Let <var>removals</var> be a new empty list.</li>
+          <li>
+            For each <var>tomb</var> in <var>ingress</var>'s
+            <code>tombs</code> array:
+            <ol>
+              <li>
+                If the tomb set already contains <var>tomb</var>, continue.
+              </li>
+              <li>
+                If <var>tomb</var> is not a <a>valid UUIDv7 string</a>,
+                continue.
+              </li>
+              <li>
+                Let <var>had item</var> be whether the item store has its own
+                property named <var>tomb</var>.
+              </li>
+              <li>Add <var>tomb</var> to the tomb set.</li>
+              <li>Delete the item store entry at <var>tomb</var>.</li>
+              <li>
+                If <var>had item</var> is true, decrease <var>size</var> by
+                <code>1</code>.
+              </li>
+              <li>Append <var>tomb</var> to <var>removals</var>.</li>
+            </ol>
+          </li>
+          <li>
+            For each <var>entry</var> in <var>ingress</var>'s
+            <code>items</code> array:
+            <ol>
+              <li>
+                Let <var>v7</var> be <var>entry</var>'s
+                <code>__uuidv7</code> member.
+              </li>
+              <li>
+                If <var>v7</var> is not a <a>valid UUIDv7 string</a>, continue.
+              </li>
+              <li>If the tomb set contains <var>v7</var>, continue.</li>
+              <li>
+                If the item store already has its own property named
+                <var>v7</var>, continue.
+              </li>
+              <li>
+                Store <code>Object.freeze(entry)</code> in the item store at
+                <var>v7</var>.
+              </li>
+              <li>Increase <var>size</var> by <code>1</code>.</li>
+              <li>Append <var>entry</var> to <var>additions</var>.</li>
+            </ol>
+          </li>
+          <li>
+            If <var>additions</var> is empty and <var>removals</var> is empty,
+            then return.
+          </li>
+          <li>
+            Dispatch a <a>merge event</a> whose <code>detail</code> contains
+            <code>additions</code> and <code>removals</code>.
+          </li>
+          <li>
+            Dispatch a <a>snapshot event</a> whose <code>detail</code> is the
+            result of running <a>snapshot()</a>.
+          </li>
+        </ol>
+        <p>
+          Tombs are processed before ingress items. As a result, an ingress item
+          whose UUID is tombstoned by the same merge operation is not re-added.
+        </p>
+      </section>
+
+      <section data-dfn-for="ORSet">
+        <h3><dfn>snapshot()</dfn></h3>
+        <ol class="algorithm">
+          <li>
+            Return a new object whose <code>items</code> member is a new array
+            containing the item store's values and whose <code>tombs</code>
+            member is a new array containing the tomb set's values.
+          </li>
+        </ol>
+      </section>
+
+      <section data-dfn-for="ORSet">
+        <h3>
+          <dfn>addEventListener()</dfn> and <dfn>removeEventListener()</dfn>
+        </h3>
+        <p>
+          These methods forward listener registration and listener removal,
+          respectively, to the instance's internal event target using the
+          provided type, listener, and options values.
+        </p>
+        <p>
+          Conforming implementations MAY accept listener types other than
+          <code>delta</code>, <code>snapshot</code>, and <code>merge</code>, but
+          this specification only defines dispatch behavior for those three
+          event types.
         </p>
       </section>
     </section>
-    <section data-dfn-for="Foo">
-      <h2>Start your spec!</h2>
-      <pre class="idl">
-        [Exposed=Window]
-        interface Foo {
-        attribute DOMString bar;
-        undefined doTheFoo();
-        };
-      </pre>
-      <p>The <dfn>Foo</dfn> interface represents a {{Foo}}.</p>
-      <p>
-        The <dfn>doTheFoo()</dfn> method does the foo. Call it by running
-        {{Foo/doTheFoo()}}.
-      </p>
-      <ol class="algorithm">
-        <li>A |variable:DOMString| can be declared like this.</li>
-      </ol>
+
+    <section class="informative">
+      <h2>Behavioral Notes</h2>
+      <ul>
+        <li>
+          The package performs shallow freezing of stored entries. Nested values
+          remain mutable and are not replicated with object-field CRDT
+          semantics.
+        </li>
+        <li>
+          <code>append()</code> preserves a caller-supplied UUIDv7 only when
+          that UUID is valid, not currently live, and not tombstoned.
+        </li>
+        <li>
+          <code>merge()</code> emits <code>merge</code> and
+          <code>snapshot</code> events when it changes state, but it does not
+          emit a <code>delta</code> event.
+        </li>
+        <li>
+          <code>values()</code> and <code>snapshot()</code> return new arrays,
+          but the entry objects inside those arrays are the frozen stored
+          entries.
+        </li>
+      </ul>
     </section>
-    <section id="conformance">
+
+    <section class="informative">
+      <h2>Acknowledgements</h2>
       <p>
-        This is required for specifications that contain normative material.
+        The package's overall design follows the OR-Set family of CRDTs
+        [[ORSET]] and practical UUID-tagged OR-Set explanations such as
+        [[NIK96A]].
       </p>
     </section>
   </body>

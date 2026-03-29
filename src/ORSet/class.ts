@@ -120,6 +120,10 @@ export class ORSet<T> {
     return Object.values(this.state.items)
   }
   /***/
+  tombstones(): Set<string> {
+    return this.state.tombs
+  }
+  /***/
   merge(ingress: ORSetSnapshot<T>) {
     const additions: Array<Readonly<ORSetEntry<T>>> = []
     const removals: Array<string> = []
