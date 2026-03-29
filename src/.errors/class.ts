@@ -7,6 +7,6 @@ export class ORSetError extends Error {
     const detail = message ?? code
     super(`{@sovereignbase/observed-remove-set} ${detail}`)
     this.code = code
-    this.name = 'PackageNameError'
+    this.name = 'ORSetError'
   }
 }

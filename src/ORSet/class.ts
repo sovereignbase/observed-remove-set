@@ -18,9 +18,13 @@ export class ORSet<T> {
     this.state = { items: {}, tombs: new Set([]) }
     if (snapshot) {
       if (validateORSetSnapshot(snapshot)) {
-        this.state.tombs = new Set(snapshot.tombs)
+        for (const tomb of snapshot.tombs) {
+          if (uuidVersion(tomb) !== 7) continue
+          this.state.tombs.add(tomb)
+        }
         for (const item of snapshot.items) {
           const v7 = item.__uuidv7
+          if (uuidVersion(v7) !== 7) continue
           if (!this.state.tombs.has(v7)) {
             this.state.items[v7] = Object.freeze(item)
             this.size++
@@ -35,9 +39,12 @@ export class ORSet<T> {
   }
   /***/
   append(entry: ORSetEntry<T>): void {
-    const v7 = uuidv7()
-    entry.__uuidv7 = v7
-    this.state.items[v7] = entry
+    let v7 = entry.__uuidv7
+    if (uuidVersion(v7) !== 7) {
+      v7 = uuidv7()
+      entry.__uuidv7 = v7
+    }
+    this.state.items[v7] = Object.freeze(entry)
     this.size++
     this.eventTarget.dispatchEvent(
       new CustomEvent<ORSetSnapshot<T>>('delta', {
@@ -103,7 +110,7 @@ export class ORSet<T> {
     for (const entry of ingress.items) {
       const v7 = entry.__uuidv7
       if (!this.state.tombs.has(v7) && !Object.hasOwn(this.state.items, v7)) {
-        this.state.items[v7] = entry
+        this.state.items[v7] = Object.freeze(entry)
         this.size++
         additions.push(entry)
       }
