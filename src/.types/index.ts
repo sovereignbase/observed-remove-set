@@ -20,14 +20,13 @@ export type ORSetEventMap<T> = {
   merge: ORSetMergeResult<T>
 }
 
-export type ORSetEventListener<
-  T,
-  K extends keyof ORSetEventMap<T>,
-> =
+export type ORSetEventListener<T, K extends keyof ORSetEventMap<T>> =
   | ((event: CustomEvent<ORSetEventMap<T>[K]>) => void)
   | { handleEvent(event: CustomEvent<ORSetEventMap<T>[K]>): void }
 
-export type ORSetEventListenerFor<T, K extends string> =
-  K extends keyof ORSetEventMap<T>
-    ? ORSetEventListener<T, K>
-    : EventListenerOrEventListenerObject
+export type ORSetEventListenerFor<
+  T,
+  K extends string,
+> = K extends keyof ORSetEventMap<T>
+  ? ORSetEventListener<T, K>
+  : EventListenerOrEventListenerObject
