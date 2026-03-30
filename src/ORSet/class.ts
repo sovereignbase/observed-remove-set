@@ -12,11 +12,22 @@ import { ORSetError } from '../.errors/class.js'
 import { isUuidV7 } from './isUuidV7/index.js'
 import { hasORSetSnapshotShape } from './hasORSetSnapshotShape/index.js'
 
+/**
+ * Represents a UUIDv7-optimized observed-remove set.
+ *
+ * @typeParam T - The payload shape stored in the set.
+ */
 export class ORSet<T extends object> {
   private readonly eventTarget = new EventTarget()
   private readonly state: ORSetState<T>
   private _size: number
-  /***/
+
+  /**
+   * Creates a new OR-Set, optionally hydrating it from a snapshot.
+   *
+   * @param snapshot - A snapshot to hydrate from.
+   * @throws {ORSetError} Thrown if the snapshot shape is malformed.
+   */
   constructor(snapshot?: ORSetSnapshot<T>) {
     this._size = 0
     this.state = { values: {}, tombstones: new Set([]) }
@@ -41,16 +52,31 @@ export class ORSet<T extends object> {
       }
     }
   }
-  /***/
+
+  /** Returns the number of live values currently visible in the set. */
   get size(): number {
     return this._size
   }
-  /***/
+
+  /**
+   * Returns whether a live value exists for the provided identifier.
+   *
+   * @param value - A stored value or its UUIDv7 identifier.
+   */
   has(value: ORSetValue<T> | string): boolean {
     const v7 = typeof value === 'string' ? value : value.__uuidv7
     return Object.hasOwn(this.state.values, v7)
   }
-  /***/
+
+  /**
+   * Appends a value to the set.
+   *
+   * If a valid caller-supplied UUIDv7 identifier is provided and is still
+   * available, that identifier is preserved. Otherwise a fresh UUIDv7 is
+   * generated.
+   *
+   * @param value - The value to append.
+   */
   append(value: ORSetAppendInput<T>): void {
     const v7 = value.__uuidv7 as string | undefined
     if (isUuidV7(v7) && Object.hasOwn(this.state.values, v7)) return
@@ -72,7 +98,8 @@ export class ORSet<T extends object> {
       })
     )
   }
-  /***/
+
+  /** Removes every live value from the set and tombstones their identifiers. */
   clear(): void {
     if (this._size === 0) return
     const egressTombstones = []
@@ -91,7 +118,12 @@ export class ORSet<T extends object> {
       })
     )
   }
-  /***/
+
+  /**
+   * Removes a live value from the set.
+   *
+   * @param value - A stored value or its UUIDv7 identifier.
+   */
   remove(value: ORSetValue<T> | string): void {
     const v7 = typeof value === 'string' ? value : value.__uuidv7
     const hadItem = Object.hasOwn(this.state.values, v7)
@@ -108,15 +140,23 @@ export class ORSet<T extends object> {
       })
     )
   }
-  /***/
+
+  /** Returns the current live values in enumeration order. */
   values(): Array<Readonly<ORSetValue<T>>> {
     return Object.values(this.state.values)
   }
-  /***/
+
+  /** Returns the live tombstone set. */
   tombstones(): Set<string> {
     return this.state.tombstones
   }
-  /***/
+
+  /**
+   * Merges an ingress snapshot into the local replica.
+   *
+   * @param ingress - The snapshot to merge.
+   * @throws {ORSetError} Thrown if the snapshot shape is malformed.
+   */
   merge(ingress: ORSetSnapshot<T>): void {
     const additions: Array<Readonly<ORSetValue<T>>> = []
     const removals: Array<string> = []
@@ -155,7 +195,8 @@ export class ORSet<T extends object> {
       })
     )
   }
-  /***/
+
+  /** Dispatches a snapshot event containing the current replica state. */
   snapshot(): void {
     this.eventTarget.dispatchEvent(
       new CustomEvent<ORSetSnapshot<T>>('snapshot', {
@@ -166,7 +207,14 @@ export class ORSet<T extends object> {
       })
     )
   }
-  /***/
+
+  /**
+   * Registers an event listener.
+   *
+   * @param type - The event type to listen for.
+   * @param listener - The listener to register.
+   * @param options - Listener registration options.
+   */
   addEventListener<K extends string>(
     type: K,
     listener: ORSetEventListenerFor<T, K> | null,
@@ -178,7 +226,14 @@ export class ORSet<T extends object> {
       options
     )
   }
-  /***/
+
+  /**
+   * Removes an event listener.
+   *
+   * @param type - The event type to stop listening for.
+   * @param listener - The listener to remove.
+   * @param options - Listener removal options.
+   */
   removeEventListener<K extends string>(
     type: K,
     listener: ORSetEventListenerFor<T, K> | null,
