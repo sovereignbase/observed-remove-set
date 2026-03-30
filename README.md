@@ -13,7 +13,7 @@ This package is best suited to membership state and static metadata where values
 
 - Runtimes: Node >= 20; Browsers: modern browsers with `EventTarget` and `CustomEvent`; Workers/Edge: tested in Bun, Deno, Cloudflare Workers, and Edge Runtime.
 - Module format: ESM and CJS.
-- Required globals / APIs: `EventTarget`, `CustomEvent`, and secure randomness for UUID generation.
+- Required globals / APIs: `EventTarget`, `CustomEvent`.
 - TypeScript: bundled types.
 
 ## Goals
