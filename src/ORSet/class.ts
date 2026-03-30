@@ -85,8 +85,8 @@ export class ORSet<T> {
     )
   }
   /***/
-  remove(value: ORSetValue<T>): void {
-    const v7 = value.__uuidv7
+  remove(value: ORSetValue<T> | string): void {
+    const v7 = typeof value === 'string' ? value : value.__uuidv7
     if (!this.isUuidV7(v7)) return
     const hadItem = Object.hasOwn(this.state.values, v7)
     const hadTombstone = this.state.tombstones.has(v7)
