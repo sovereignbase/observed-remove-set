@@ -46,6 +46,8 @@ Use the `snapshot` event when you want the full current replica state, the
 `delta` event when you want to forward locally produced changes, and the
 `merge` event when you want to react to accepted ingress changes.
 
+`has()` and `remove()` accept either a stored value or a bare UUIDv7 string.
+
 ### Persist or export the current replica state
 
 ```ts
@@ -74,7 +76,7 @@ set.addEventListener('delta', (event) => {
 
 set.append({ role: 'admin' })
 const [admin] = set.values()
-set.remove(admin)
+set.remove(admin.__uuidv7)
 ```
 
 ### Apply ingress and react to accepted changes
@@ -122,11 +124,12 @@ for (const tombstone of tombstones) {
 
 - `new ORSet(snapshot)` and `merge(snapshot)` throw `ORSetError` with code `BAD_SNAPSHOT` when the top-level snapshot shape is malformed.
 - Invalid individual UUIDs inside an otherwise well-formed snapshot are filtered out instead of crashing the replica.
+- `has()` and `remove()` accept either a stored value object or a UUIDv7 string.
 
 ### Event model
 
-- `append()`, `clear()`, and `remove()` returns void and dispatch only `delta`.
-- `merge()` returns void dispatches only `merge`.
+- `append()`, `clear()`, and `remove()` return `void` and dispatch only `delta`.
+- `merge()` returns `void` and dispatches only `merge`.
 - `snapshot()` returns `void` and dispatches only `snapshot`.
 - No-op operations do not dispatch events.
 
@@ -150,16 +153,18 @@ Environment: Node v22.14.0 (win32 x64)
 
 | Benchmark                | Result                     |
 | ------------------------ | -------------------------- |
-| constructor hydrate x512 | 3,369 ops/s (296.8 ms)     |
-| has live                 | 16,615,298 ops/s (12.0 ms) |
-| values x512              | 4,621 ops/s (1082.1 ms)    |
-| snapshot x512            | 5,024 ops/s (995.1 ms)     |
-| append fresh             | 143,698 ops/s (348.0 ms)   |
-| remove live              | 231,874 ops/s (215.6 ms)   |
-| clear x512               | 1,937 ops/s (1032.6 ms)    |
-| merge add x512           | 3,747 ops/s (333.6 ms)     |
-| merge mixed x512         | 1,441 ops/s (520.6 ms)     |
-| replica roundtrip x256   | 1,587 ops/s (945.3 ms)     |
+| constructor hydrate x512 | 1,774 ops/s (563.8 ms)     |
+| has live                 | 1,537,058 ops/s (130.1 ms) |
+| has live string          | 1,730,831 ops/s (115.6 ms) |
+| values x512              | 2,378 ops/s (2102.4 ms)    |
+| snapshot x512            | 1,732 ops/s (2886.5 ms)    |
+| append fresh             | 58,219 ops/s (858.8 ms)    |
+| remove live              | 120,856 ops/s (413.7 ms)   |
+| remove live string       | 139,508 ops/s (358.4 ms)   |
+| clear x512               | 821 ops/s (2435.9 ms)      |
+| merge add x512           | 1,487 ops/s (840.3 ms)     |
+| merge mixed x512         | 648 ops/s (1158.1 ms)      |
+| replica roundtrip x256   | 856 ops/s (1752.8 ms)      |
 
 Results vary by machine.
 

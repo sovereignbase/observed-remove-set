@@ -520,10 +520,18 @@ dictionary ORSetMergeResult {
 
         <section data-dfn-for="ORSet">
           <h4><dfn>has()</dfn></h4>
-          <p>
-            Return whether the live value store has its own property whose name
-            is <code>value.__uuidv7</code>.
-          </p>
+          <ol class="algorithm">
+            <li>
+              Let <var>id</var> be <var>value</var> if <var>value</var> is a
+              string; otherwise let <var>id</var> be
+              <code>value.__uuidv7</code>.
+            </li>
+            <li>
+              Return true if <var>id</var> is a valid
+              <a>UUIDv7 identifier</a> and the live value store has its own
+              property named <var>id</var>; otherwise return false.
+            </li>
+          </ol>
         </section>
 
         <section data-dfn-for="ORSet">
@@ -587,7 +595,11 @@ dictionary ORSetMergeResult {
         <section data-dfn-for="ORSet">
           <h4><dfn>remove()</dfn></h4>
           <ol class="algorithm">
-            <li>Let <var>id</var> be <code>value.__uuidv7</code>.</li>
+            <li>
+              Let <var>id</var> be <var>value</var> if <var>value</var> is a
+              string; otherwise let <var>id</var> be
+              <code>value.__uuidv7</code>.
+            </li>
             <li>
               If <var>id</var> is not a valid <a>UUIDv7 identifier</a>, then
               return.

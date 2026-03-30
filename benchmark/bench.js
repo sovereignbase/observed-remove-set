@@ -163,8 +163,14 @@ section('Read Paths')
 bench('has live', 200000, () => {
   hasSet.has(hasLive)
 })
+bench('has live string', 200000, () => {
+  hasSet.has(hasLive.__uuidv7)
+})
 bench('has miss', 200000, () => {
   hasSet.has(hasMiss)
+})
+bench('has miss string', 200000, () => {
+  hasSet.has(hasMiss.__uuidv7)
 })
 bench('values x512', 5000, () => {
   valuesSet.values()
@@ -208,12 +214,23 @@ bench('remove live', 50000, () => {
   const set = new ORSet(oneLiveSnapshot)
   set.remove(oneLiveValue)
 })
+bench('remove live string', 50000, () => {
+  const set = new ORSet(oneLiveSnapshot)
+  set.remove(oneLiveValue.__uuidv7)
+})
 bench('remove ghost tomb', 50000, () => {
   const set = new ORSet()
   set.remove(hasMiss)
 })
+bench('remove ghost tomb string', 50000, () => {
+  const set = new ORSet()
+  set.remove(hasMiss.__uuidv7)
+})
 bench('remove tomb noop', 200000, () => {
   removeNoopSet.remove(removeNoopValue)
+})
+bench('remove tomb noop string', 200000, () => {
+  removeNoopSet.remove(removeNoopValue.__uuidv7)
 })
 bench('clear noop', 200000, () => {
   clearNoopSet.clear()

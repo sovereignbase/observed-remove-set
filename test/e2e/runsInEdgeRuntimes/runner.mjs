@@ -8,16 +8,21 @@ const root = process.cwd()
 const esmDistPath = resolve(root, 'dist', 'index.js')
 
 function toExecutableEdgeEsm(bundleCode) {
-  const importPattern =
-    /import\s*\{\s*v7 as uuidv7,\s*version as uuidVersion\s*\}\s*from\s*["']uuid["'];\s*/
-  if (!importPattern.test(bundleCode)) {
+  const uuidV7ImportPattern =
+    /import\s*\{\s*v7 as uuidv7\s*\}\s*from\s*["']uuid["'];\s*/
+  const uuidVersionImportPattern =
+    /import\s*\{\s*version as uuidVersion\s*\}\s*from\s*["']uuid["'];\s*/
+
+  if (
+    !uuidV7ImportPattern.test(bundleCode) ||
+    !uuidVersionImportPattern.test(bundleCode)
+  ) {
     throw new Error('edge-runtime esm harness could not find the uuid import')
   }
 
-  const withoutImport = bundleCode.replace(
-    importPattern,
-    'const { v7: uuidv7, version: uuidVersion } = globalThis.__ORSET_UUID;\n'
-  )
+  const withoutImport = bundleCode
+    .replace(uuidV7ImportPattern, '')
+    .replace(uuidVersionImportPattern, '')
   const exportMatch = withoutImport.match(
     /export\s*\{\s*ORSet\s*\};\s*(\/\/# sourceMappingURL=.*)?\s*$/
   )
@@ -27,6 +32,7 @@ function toExecutableEdgeEsm(bundleCode) {
 
   const sourceMapComment = exportMatch[1] ? `${exportMatch[1]}\n` : ''
   return (
+    'const { v7: uuidv7, version: uuidVersion } = globalThis.__ORSET_UUID;\n' +
     withoutImport.slice(0, exportMatch.index) +
     'globalThis.__ORSET_EXPORTS__ = { ORSet };\n' +
     sourceMapComment

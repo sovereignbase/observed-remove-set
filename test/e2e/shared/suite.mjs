@@ -250,12 +250,12 @@ export async function runORSetSuite(api, options = {}) {
     assertEqual(events.snapshot.length, 0)
   })
 
-  await runTest('remove tombstones a live item once', () => {
+  await runTest('remove tombstones a live uuid string once', () => {
     const set = new ORSet()
     set.append({ name: 'alice' })
     const [live] = set.values()
     const events = captureEvents(set)
-    set.remove(live)
+    set.remove(live.__uuidv7)
     set.remove(live)
 
     assertEqual(set.size, 0)

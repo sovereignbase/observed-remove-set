@@ -54,13 +54,13 @@ test('remove invalid uuid is silent', () => {
   assert.equal(events.snapshot.length, 0)
 })
 
-test('remove live value decrements size and emits delta', () => {
+test('remove live uuid string decrements size and emits delta', () => {
   const set = new ORSet()
   set.append({ name: 'alice' })
   const [live] = set.values()
   const { events } = captureEvents(set)
 
-  set.remove(live)
+  set.remove(live.__uuidv7)
 
   assert.equal(set.size, 0)
   assert.equal(set.has(live), false)
