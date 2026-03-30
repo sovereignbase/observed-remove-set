@@ -14,6 +14,10 @@ export type ORSetSnapshot<T extends object> = {
   values: Array<Readonly<ORSetValue<T>>>
   tombstones: Array<string>
 }
+export type ORSetDelta<T extends object> = {
+  values: Array<Readonly<ORSetValue<T>>>
+  tombstones: Array<string>
+}
 export type ORSetMergeResult<T extends object> = {
   removals: Array<string>
   additions: Array<Readonly<ORSetValue<T>>>
@@ -21,7 +25,7 @@ export type ORSetMergeResult<T extends object> = {
 
 export type ORSetEventMap<T extends object> = {
   snapshot: ORSetSnapshot<T>
-  delta: ORSetSnapshot<T>
+  delta: ORSetDelta<T>
   merge: ORSetMergeResult<T>
 }
 

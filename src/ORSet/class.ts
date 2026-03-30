@@ -1,6 +1,7 @@
 import { v7 as uuidv7 } from 'uuid'
 import type {
   ORSetAppendInput,
+  ORSetDelta,
   ORSetEventListenerFor,
   ORSetMergeResult,
   ORSetSnapshot,
@@ -63,7 +64,7 @@ export class ORSet<T extends object> {
     this.state.values[nextV7] = frozenValue
     this._size++
     this.eventTarget.dispatchEvent(
-      new CustomEvent<ORSetSnapshot<T>>('delta', {
+      new CustomEvent<ORSetDelta<T>>('delta', {
         detail: {
           tombstones: [],
           values: [frozenValue],
@@ -82,7 +83,7 @@ export class ORSet<T extends object> {
     }
     this._size = 0
     this.eventTarget.dispatchEvent(
-      new CustomEvent<ORSetSnapshot<T>>('delta', {
+      new CustomEvent<ORSetDelta<T>>('delta', {
         detail: {
           tombstones: egressTombstones,
           values: [],
@@ -99,7 +100,7 @@ export class ORSet<T extends object> {
     delete this.state.values[v7]
     this._size--
     this.eventTarget.dispatchEvent(
-      new CustomEvent<ORSetSnapshot<T>>('delta', {
+      new CustomEvent<ORSetDelta<T>>('delta', {
         detail: {
           tombstones: [v7],
           values: [],
@@ -116,7 +117,7 @@ export class ORSet<T extends object> {
     return this.state.tombstones
   }
   /***/
-  merge(ingress: ORSetSnapshot<T>) {
+  merge(ingress: ORSetSnapshot<T>): void {
     const additions: Array<Readonly<ORSetValue<T>>> = []
     const removals: Array<string> = []
     if (!hasORSetSnapshotShape(ingress)) {
