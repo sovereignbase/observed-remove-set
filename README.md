@@ -13,6 +13,9 @@
 
 what it is
 
+A state-based crdt or set bla bla with optimizatio strategy, for more info see sovereignbase.github.io/observed-remove-set
+An observed remove set is useful for storing static metdata or membership information. Writing changes to the or-set values are not updated conflict free or eventually consistently so basically append or remove, and readonly for content with conflict free eventual consistent quarantee, a possible garbage collection strategy is defined in the spec, and
+
 what it’s for
 
 (optional) what it’s not for
@@ -39,19 +42,19 @@ TypeScript: bundled types / source TS / etc.
 
 “Returns copies for safety…”
 
-5. Installation
-
-Always the same triple:
-
-npm install <name>
-
+```sh
+npm install @sovereignbase/observed-remove-set
 # or
-
-pnpm add <name>
-
+pnpm add @sovereignbase/observed-remove-set
 # or
-
-yarn add <name>
+yarn add @sovereignbase/observed-remove-set
+# or
+bun add @sovereignbase/observed-remove-set
+# or
+deno add jsr:@sovereignbase/observed-remove-set
+# or
+vlt install jsr:@sovereignbase/observed-remove-set
+```
 
 6. Usage
 

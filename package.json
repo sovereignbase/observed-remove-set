@@ -3,8 +3,11 @@
   "license": "Apache-2.0",
   "name": "@sovereignbase/observed-remove-set",
   "version": "0.0.0",
-  "description": "",
+  "description": "JS/TS runtime-agnostic observed remove set with a uuidv7 optimization strategy.",
   "keywords": [
+    "crdt",
+    "delta",
+    "orset",
     "typescript",
     "sovereignbase"
   ],
@@ -74,5 +77,5 @@
   "bugs": {
     "url": "https://github.com/sovereignbase/observed-remove-set/issues"
   },
-  "homepage": "https://github.com/sovereignbase/observed-remove-set#readme"
+  "homepage": "sovereignbase.github.io/observed-remove-set"
 }
