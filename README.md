@@ -42,7 +42,26 @@ vlt install jsr:@sovereignbase/observed-remove-set
 
 ## Usage
 
-### Local mutation stream
+Use the `snapshot` event when you want the full current replica state, the
+`delta` event when you want to forward locally produced changes, and the
+`merge` event when you want to react to accepted ingress changes.
+
+### Persist or export the current replica state
+
+```ts
+import { ORSet } from '@sovereignbase/observed-remove-set'
+
+const set = new ORSet<{ role: string }>()
+
+set.addEventListener('snapshot', (event) => {
+  localStorage.setItem('members', JSON.stringify(event.detail))
+})
+
+set.append({ role: 'admin' })
+set.snapshot()
+```
+
+### Forward local mutations upstream
 
 ```ts
 import { ORSet } from '@sovereignbase/observed-remove-set'
@@ -50,8 +69,7 @@ import { ORSet } from '@sovereignbase/observed-remove-set'
 const set = new ORSet<{ role: string }>()
 
 set.addEventListener('delta', (event) => {
-  console.log(event.detail.values)
-  console.log(event.detail.tombstones)
+  upstream.broadcast(JSON.stringify(event.detail))
 })
 
 set.append({ role: 'admin' })
@@ -59,51 +77,26 @@ const [admin] = set.values()
 set.remove(admin)
 ```
 
-### Replica merge
-
-```ts
-import { ORSet } from '@sovereignbase/observed-remove-set'
-
-function readSnapshot<T>(set: ORSet<T>) {
-  let snapshot
-
-  set.addEventListener(
-    'snapshot',
-    (event) => {
-      snapshot = event.detail
-    },
-    { once: true }
-  )
-  set.snapshot()
-
-  return snapshot
-}
-
-const a = new ORSet<{ name: string }>()
-const b = new ORSet<{ name: string }>()
-
-a.append({ name: 'alice' })
-b.merge(readSnapshot(a))
-```
-
-### Explicit snapshot request
+### Apply ingress and react to accepted changes
 
 ```ts
 import { ORSet } from '@sovereignbase/observed-remove-set'
 
 const set = new ORSet<{ name: string }>()
-set.append({ name: 'alice' })
 
-set.addEventListener(
-  'snapshot',
-  (event) => {
-    console.log(event.detail.values)
-    console.log(event.detail.tombstones)
-  },
-  { once: true }
-)
+set.addEventListener('merge', (event) => {
+  for (const value of event.detail.additions) {
+    console.log('added', value)
+  }
 
-set.snapshot()
+  for (const tombstone of event.detail.removals) {
+    console.log('removed', tombstone)
+  }
+})
+
+upstream.onmessage = (snapshot) => {
+  set.merge(snapshot)
+}
 ```
 
 ### Tombstone inspection for application-level GC
